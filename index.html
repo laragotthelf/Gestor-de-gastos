@@ -51,7 +51,15 @@ select.ph{color:var(--mu);opacity:.65}select option{color:var(--tx)}
 label.ck{display:flex;gap:8px;align-items:center;color:var(--mu);font-size:14px}
 details summary{cursor:pointer;color:var(--solid);font-weight:600}
 .pie{display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center}.pie svg{width:190px;height:190px;flex:none}
-.leg{flex:1;min-width:150px;font-size:13.5px}.leg div{display:flex;align-items:center;gap:6px;margin:3px 0}.leg i{width:10px;height:10px;border-radius:3px;flex:none}.leg span{flex:1}.leg div{cursor:pointer;border-radius:6px;padding:2px 4px}.leg div.sel{background:var(--soft)}.leg b{font-weight:600}
+.leg{flex:1;min-width:150px;font-size:13.5px}.leg div{display:flex;align-items:center;gap:6px;margin:3px 0}.leg i{width:10px;height:10px;border-radius:3px;flex:none}.leg span{flex:1}
+.card>h2:first-child,.hero>small:first-child{cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center}
+.hero>small:first-child{justify-content:center;gap:6px}
+.card>h2:first-child::after,.hero>small:first-child::after{content:'▾';font-size:14px;margin-left:8px}
+.card.min>h2:first-child::after,.hero.min>small:first-child::after{content:'▸'}
+.card.min>*:not(:first-child){display:none}
+.card.min>h2:first-child{margin-bottom:0}
+.sum>h2{grid-column:1/-1;text-align:left;margin:0 0 2px}
+.leg div{cursor:pointer;border-radius:6px;padding:2px 4px}.leg div.sel{background:var(--soft)}.leg b{font-weight:600}
 </style>
 </head>
 <body>
@@ -64,7 +72,7 @@ details summary{cursor:pointer;color:var(--solid);font-weight:600}
  <div class="row" id="tabs" style="margin-bottom:12px"></div>
 
  <div class="card hero"><small>Saldo disponible</small><div id="sS"></div><small id="sSub" style="text-transform:none;letter-spacing:0"></small></div>
- <div class="card sum">
+ <div class="card sum"><h2>Resumen</h2>
   <div><small>Ingresos</small><strong class="i" id="sI"></strong></div>
   <div><small>Gastos</small><strong class="g" id="sG"></strong></div>
   <div><small>Ahorro</small><strong class="a" id="sA"></strong></div>
@@ -92,10 +100,10 @@ details summary{cursor:pointer;color:var(--solid);font-weight:600}
   </form>
  </div>
 
- <div class="card" id="save"></div>
+ <div class="card min" id="save"></div>
  <div class="card"><h2>Distribución</h2><div id="pie"></div></div>
- <div class="card"><h2>Gastos por categoría</h2><div id="cat"></div></div>
- <div class="card"><h2>Movimientos</h2><div id="list"></div></div>
+ <div class="card min"><h2>Gastos por categoría</h2><div id="cat"></div></div>
+ <div class="card min"><h2>Movimientos</h2><div id="list"></div></div>
  <div class="card"><details><summary>Ajustes: pestañas y presupuesto</summary><div id="cfg" style="margin-top:10px"></div></details></div>
 </main>
 <script>
@@ -207,6 +215,7 @@ function startEdit(id){
   manualTab=t.tab;
   $('#fOk').textContent='Guardar cambios';$('#fCancel').style.display='';
   render();hints();note('');
+  $('#f').closest('.card').classList.remove('min');
   $('#f').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function applyTheme(){
@@ -268,10 +277,10 @@ function render(){
 
   // ahorro por pestaña
   const goalM=names.reduce((s,n)=>s+(+cfg.goals[n]||0),0),goalP=goalM*f,sv=$('#save');
-  let h=`<h2>Ahorro · ${esc(sel.size?[...sel].join(' + '):'todas las pestañas')}</h2><div class="a" style="font-size:28px;font-weight:700;line-height:1.1">${money(A)}</div><small class="mu">Ahorrado en ${esc(label())}</small>`;
+  let h=`<h2>Meta de ahorro · ${esc(sel.size?[...sel].join(' + '):'todas las pestañas')}</h2><div class="a" style="font-size:28px;font-weight:700;line-height:1.1">${money(A)}</div><small class="mu">Ahorrado en ${esc(label())}</small>`;
   const ab={};inR.filter(t=>t.type==='ahorro').forEach(t=>ab[t.cat]=(ab[t.cat]||0)+t.amt);
   if(A>0)h+='<div style="margin-top:10px">'+Object.entries(ab).sort((x,y)=>y[1]-x[1]).map(([c,v])=>`<div class="cat"><span>${esc(c)}</span><div class="bar"><i style="width:${v/A*100}%;background:var(--aho)"></i></div><b>${money(v)}</b></div>`).join('')+'</div>';
-  h+=`<h2 style="margin-top:16px">Meta de ahorro</h2><small class="mu" style="display:block;margin-bottom:8px">Escribí cuánto querés ahorrar <b>por mes</b> en cada pestaña. Después tocá Calcular: te digo cuánto te falta y en qué categorías conviene recortar.</small>`+names.map(n=>`<div class="two" style="align-items:center;margin-bottom:6px"><span>${esc(n)}</span><input data-goal="${esc(n)}" type="text" inputmode="decimal" placeholder="Meta mensual $" value="${cfg.goals[n]||''}"></div>`).join('')+'<button class="add" style="width:100%;margin-top:4px" data-calc="1">Calcular</button>';
+  h+=`<h2 style="margin-top:16px">Definí tu meta</h2><small class="mu" style="display:block;margin-bottom:8px">Escribí cuánto querés ahorrar <b>por mes</b> en cada pestaña. Después tocá Calcular: te digo cuánto te falta y en qué categorías conviene recortar.</small>`+names.map(n=>`<div class="two" style="align-items:center;margin-bottom:6px"><span>${esc(n)}</span><input data-goal="${esc(n)}" type="text" inputmode="decimal" placeholder="Meta mensual $" value="${cfg.goals[n]||''}"></div>`).join('')+'<button class="add" style="width:100%;margin-top:4px" data-calc="1">Calcular</button>';
   if(goalM>0){
     const falta=Math.max(0,goalP-A),disp=I-G-A,need=Math.max(0,falta-disp),pc=Math.max(0,Math.min(100,A/goalP*100));
     h+=`<div class="bar"><i style="width:${pc}%;background:${A>=goalP?'var(--ing)':'var(--aho)'}"></i></div><div class="row" style="justify-content:space-between"><span>Ahorrado en el período: <b class="a">${money(A)}</b></span><span class="mu">meta ${money(goalP)}</span></div>`;
@@ -340,6 +349,7 @@ document.addEventListener('change',e=>{
   else if(el.id==='cA'||el.id==='cB'){if(el.id==='cA')cA=el.value;else cB=el.value;if(cA>cB){if(el.id==='cA')cB=cA;else cA=cB}render()}
 });
 document.addEventListener('click',e=>{const el=e.target.closest('[data-sl]');if(!el)return;const n=el.getAttribute('data-sl');pieSel=pieSel===n?null:n;render()});
+document.addEventListener('click',e=>{const c=e.target.closest('.card');if(!c)return;const f=c.firstElementChild;if(f&&f.contains(e.target)&&(f.tagName==='H2'||c.classList.contains('hero')))c.classList.toggle('min')});
 document.addEventListener('input',e=>{const id=e.target.id;if(id==='fCat')updSubs();if(['fCur','fRate','fAmt','fQ','fN'].includes(id))hints()});
 $('#fQ').addEventListener('change',hints);$('#fCur').addEventListener('change',hints);
 $('#f').addEventListener('submit',e=>{
