@@ -180,13 +180,13 @@ function pieHTML(I,G,A,by){
   sl.sort((x,y)=>y.v-x.v);
   const base=sl.reduce((s,x)=>s+x.v,0),C=2*Math.PI*70,bal=I-G-A;
   const cur=sl.find(x=>x.n===pieSel)||null;if(!cur)pieSel=null;
-  const cls=bal>=0?'var(--sal)':'var(--gas)',pct=x=>(x.v/base*100).toFixed(0)+'%';
+  const cls=bal>=0?'var(--sal)':'var(--gas)',pct=x=>{const p=x.v/base*100;return p<1?'<1%':p<10?p.toFixed(1)+'%':p.toFixed(0)+'%'};
   let off=0,arcs='';
-  if(base>0)sl.forEach(x=>{const d=x.v/base*C,on=cur===x;arcs+=`<circle data-sl="${esc(x.n)}" cx="100" cy="100" r="70" fill="none" stroke="${x.c}" stroke-opacity="${cur?(on?1:.3):.85}" stroke-width="${on?34:28}" stroke-dasharray="${d} ${C-d}" stroke-dashoffset="${-off}" transform="rotate(-90 100 100)" style="cursor:pointer"><title>${esc(x.n)}: ${esc(money(x.v))} (${pct(x)})</title></circle>`;off+=d});
-  const t1=cur?(cur.n.length>16?cur.n.slice(0,15)+'…':cur.n):'Saldo',t2=cur?money(cur.v):money(bal),t3=cur?pct(cur)+' del total':'';
-  const fs=cur?18:(Math.abs(bal)>=1e7?16:21);
+  if(base>0)sl.forEach(x=>{const d=x.v/base*C,on=cur===x;arcs+=`<circle data-sl="${esc(x.n)}" cx="100" cy="100" r="70" fill="none" stroke="${x.c}" stroke-opacity="${cur?(on?1:.3):.85}" stroke-width="${on?34:28}" stroke-dasharray="${d} ${C-d}" stroke-dashoffset="${-off}" transform="rotate(-90 100 100)" style="cursor:pointer"><title>${esc(x.n)}: ${pct(x)}</title></circle>`;off+=d});
+  const t1=cur?(cur.n.length>16?cur.n.slice(0,15)+'…':cur.n):'Saldo',t2=cur?pct(cur):money(bal),t3=cur?'del total':'';
+  const fs=cur?26:(Math.abs(bal)>=1e7?16:21);
   const svg=`<svg viewBox="0 0 200 200" role="img" aria-label="Distribución"><circle cx="100" cy="100" r="70" fill="none" stroke="var(--soft)" stroke-width="28"/>${arcs}<text x="100" y="88" text-anchor="middle" font-size="11" style="fill:var(--mu)">${esc(t1)}</text><text x="100" y="113" text-anchor="middle" font-size="${fs}" font-weight="800" style="fill:${cur?'var(--tx)':cls}">${esc(t2)}</text><text x="100" y="130" text-anchor="middle" font-size="10" style="fill:var(--mu)">${esc(t3)}</text></svg>`;
-  const leg=sl.map(x=>`<div data-sl="${esc(x.n)}" class="${cur===x?'sel':''}"><i style="background:${x.c}"></i><span>${esc(x.n)}</span><b>${money(x.v)}</b><small class="mu">${pct(x)}</small></div>`).join('');
+  const leg=sl.map(x=>`<div data-sl="${esc(x.n)}" class="${cur===x?'sel':''}"><i style="background:${x.c}"></i><span>${esc(x.n)}</span><b>${pct(x)}</b></div>`).join('');
   return `<div class="pie">${svg}<div class="leg">${leg||'<span class="mu">Sin datos en este período</span>'}</div></div>`;
 }
 
