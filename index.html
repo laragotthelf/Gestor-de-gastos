@@ -260,16 +260,16 @@ function renderAv(all,DA,DB){
   $('#avSum').innerHTML=`<div class="a" style="font-size:30px;font-weight:800;line-height:1.1">${money(tot)}</div><small class="mu">Ahorrado en ${esc(label())}, sumando todas las pestañas</small><h2 style="margin:14px 0 4px">Por origen (pestaña)</h2>${bars(grp('tab'))}<h2 style="margin:14px 0 4px">Por categoría (destino)</h2>${bars(grp('cat'))}`;
   $('#avList').innerHTML=ah.length?ah.map(rowHTML).join(''):'<div class="msg">Todavía no hay ahorros en este período</div>';
   const gl=cfg.saveGoals||[],key=n=>String(n).trim().toLowerCase();
-  const saved=n=>all.filter(t=>t.type==='ahorro'&&key(t.cat)===key(n)).reduce((s,t)=>s+t.amt,0);
-  const pn=$('#gN')?$('#gN').value:'',pt=$('#gT')?$('#gT').value:'';
+  const saved=(g,per)=>all.filter(t=>t.type==='ahorro'&&(!per||(t.date>=DA&&t.date<=DB))&&(g.m==='all'||key(t.cat)===key(g.n))).reduce((s,t)=>s+t.amt,0);
+  const pn=$('#gN')?$('#gN').value:'',pt=$('#gT')?$('#gT').value:'',pm=$('#gM')?$('#gM').value:'cat';
   const cards=gl.map(g=>{
-    const v=saved(g.n),p=g.t>0?v/g.t*100:0,diff=g.t-v,gid='sg:'+g.id;
+    const v=saved(g),vp=saved(g,1),p=g.t>0?v/g.t*100:0,diff=g.t-v,gid='sg:'+g.id;
     const state=diff>0?`Te faltan <b class="g">${money(diff)}</b>`:diff<0?`¡Te pasaste por <b class="i">${money(-diff)}</b>!`:'<b class="i">¡Meta cumplida justo!</b>';
     const acts=pend===gid?`<span class="mu">¿Borrar?</span> <button class="chip" data-yes="${esc(gid)}">Sí</button> <button class="chip" data-no="1">No</button>`:`<button class="del" data-gedit="${esc(g.id)}">✏️ Editar</button> <button class="del" data-del="${esc(gid)}">🗑 Borrar</button>`;
-    return `<div class="goal"><div class="row" style="justify-content:space-between"><b>${esc(g.n)}</b><span>${acts}</span></div><div class="bar"><i style="width:${Math.min(100,p)}%;background:${v>=g.t?'var(--ing)':'var(--aho)'}"></i></div><div class="row" style="justify-content:space-between"><span>Vas <b class="a">${money(v)}</b> de ${money(g.t)} (${p<10?p.toFixed(1):p.toFixed(0)}%)</span><span>${state}</span></div></div>`;
+    return `<div class="goal"><div class="row" style="justify-content:space-between"><b>${esc(g.n)}</b><span>${acts}</span></div><div class="bar"><i style="width:${Math.min(100,p)}%;background:${v>=g.t?'var(--ing)':'var(--aho)'}"></i></div><div class="row" style="justify-content:space-between"><span>Vas <b class="a">${money(v)}</b> de ${money(g.t)} (${p<10?p.toFixed(1):p.toFixed(0)}%)</span><span>${state}</span></div><small class="mu" style="display:block;margin-top:4px">Acumulado de todos los meses · en este período: ${money(vp)} · ${g.m==='all'?'cuenta todo tu ahorro':'cuenta los ahorros con categoría «'+esc(g.n)+'»'}</small></div>`;
   }).join('');
-  $('#avGoals').innerHTML=(cards||'<div class="msg">Todavía no tenés metas. Creá la primera acá abajo.</div>')+`<small class="mu" style="display:block;margin:8px 0 6px">Se suma todo lo que cargues como <b>Ahorro</b> con ese motivo como categoría, sin importar la pestaña ni el período.</small><div class="two"><input id="gN" placeholder="Motivo (ej: Viaje)"><input id="gT" type="text" inputmode="decimal" placeholder="Meta $"></div><button class="add" style="width:100%;margin-top:6px" id="gOk">${goalEdit?'Guardar cambios':'Agregar meta'}</button>${goalEdit?'<button class="chip" id="gCancel" style="margin-top:6px">Cancelar</button>':''}`;
-  if(goalEdit){const g=gl.find(x=>x.id===goalEdit);if(g){$('#gN').value=g.n;$('#gT').value=g.t}}else{$('#gN').value=pn;$('#gT').value=pt}
+  $('#avGoals').innerHTML=(cards||'<div class="msg">Todavía no tenés metas. Creá la primera acá abajo.</div>')+`<small class="mu" style="display:block;margin:8px 0 6px">El avance es el <b>acumulado de todos los meses y pestañas</b>. Elegí qué ahorros cuenta cada meta.</small><div class="two"><input id="gN" placeholder="Motivo (ej: Viaje)"><input id="gT" type="text" inputmode="decimal" placeholder="Meta $"></div><select id="gM" style="margin-top:6px"><option value="cat">Cuenta solo los ahorros con ese motivo como categoría</option><option value="all">Cuenta todo mi ahorro (cualquier categoría)</option></select><button class="add" style="width:100%;margin-top:6px" id="gOk">${goalEdit?'Guardar cambios':'Agregar meta'}</button>${goalEdit?'<button class="chip" id="gCancel" style="margin-top:6px">Cancelar</button>':''}`;
+  if(goalEdit){const g=gl.find(x=>x.id===goalEdit);if(g){$('#gN').value=g.n;$('#gT').value=g.t;$('#gM').value=g.m||'cat'}}else{$('#gN').value=pn;$('#gT').value=pt;$('#gM').value=pm}
 }
 function render(){
   fixCfg();applyTheme();
@@ -369,7 +369,7 @@ document.addEventListener('click',e=>{
   else if(d.addtab){addingTab=true;render();const q=$('#qTab');if(q)q.focus()}
   else if(d.qx){addingTab=false;render()}
   else if(d.qadd)addQuickTab()
-  else if(t.id==='gOk'){const n=$('#gN').value.trim(),v=parseMoney($('#gT').value);if(!n||!(v>0)){$('#gOk').textContent='Completá motivo y monto';return}cfg.saveGoals=cfg.saveGoals||[];if(goalEdit){const g=cfg.saveGoals.find(x=>x.id===goalEdit);if(g){g.n=n;g.t=v}goalEdit=null}else cfg.saveGoals.push({id:'g'+Date.now().toString(36),n,t:v});$('#gN').value='';$('#gT').value='';saveCfg()}
+  else if(t.id==='gOk'){const n=$('#gN').value.trim(),v=parseMoney($('#gT').value);if(!n||!(v>0)){$('#gOk').textContent='Completá motivo y monto';return}cfg.saveGoals=cfg.saveGoals||[];if(goalEdit){const g=cfg.saveGoals.find(x=>x.id===goalEdit);if(g){g.n=n;g.t=v;g.m=$('#gM').value}goalEdit=null}else cfg.saveGoals.push({id:'g'+Date.now().toString(36),n,t:v,m:$('#gM').value});$('#gN').value='';$('#gT').value='';saveCfg()}
   else if(t.id==='gCancel'){goalEdit=null;$('#gN').value='';$('#gT').value='';render()}
   else if(d.gedit){goalEdit=d.gedit;render()}
   else if(d.tab){setAv(false);sel.has(d.tab)?sel.delete(d.tab):sel.add(d.tab);manualTab=null;render()}
