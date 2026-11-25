@@ -1,0 +1,15 @@
+{
+  "name": "Gestor de gastos",
+  "short_name": "Gastos",
+  "description": "Controlá tus ingresos, gastos y ahorros.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#16131e",
+  "theme_color": "#6242b8",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
