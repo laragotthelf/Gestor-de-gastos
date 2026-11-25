@@ -60,6 +60,8 @@ details summary{cursor:pointer;color:var(--solid);font-weight:600}
 .card.min>h2:first-child{margin-bottom:0}
 .sum>h2{grid-column:1/-1;text-align:left;margin:0 0 2px}
 .leg div{cursor:pointer;border-radius:6px;padding:2px 4px}.leg div.sel{background:var(--soft)}.leg b{font-weight:600}
+.av-only{display:none}body.av .av-only{display:block}body.av .noav{display:none!important}
+.goal{background:var(--soft);border-radius:14px;padding:12px;margin-bottom:8px}.qt{display:inline-flex;gap:6px;align-items:center}.qt input{width:150px;padding:6px 12px;border-radius:99px}
 </style>
 </head>
 <body>
@@ -71,14 +73,14 @@ details summary{cursor:pointer;color:var(--solid);font-weight:600}
  <div class="two" id="cust" style="display:none;margin-bottom:8px"><input type="date" id="cA"><input type="date" id="cB"></div>
  <div class="row" id="tabs" style="margin-bottom:12px"></div>
 
- <div class="card hero"><small>Saldo disponible</small><div id="sS"></div><small id="sSub" style="text-transform:none;letter-spacing:0"></small></div>
- <div class="card sum"><h2>Resumen</h2>
+ <div class="card hero noav"><small>Saldo disponible</small><div id="sS"></div><small id="sSub" style="text-transform:none;letter-spacing:0"></small></div>
+ <div class="card sum noav"><h2>Resumen</h2>
   <div><small>Ingresos</small><strong class="i" id="sI"></strong></div>
   <div><small>Gastos</small><strong class="g" id="sG"></strong></div>
   <div><small>Ahorro</small><strong class="a" id="sA"></strong></div>
  </div>
- <div class="card" id="budget"></div>
- <div id="plans"></div>
+ <div class="card noav" id="budget"></div>
+ <div id="plans" class="noav"></div>
 
  <div class="card">
   <h2>Nuevo movimiento</h2>
@@ -100,10 +102,15 @@ details summary{cursor:pointer;color:var(--solid);font-weight:600}
   </form>
  </div>
 
- <div class="card min" id="save"></div>
- <div class="card"><h2>Distribución</h2><div id="pie"></div></div>
- <div class="card min"><h2>Gastos por categoría</h2><div id="cat"></div></div>
- <div class="card min"><h2>Movimientos</h2><div id="list"></div></div>
+ <div id="avw" class="av-only">
+ <div class="card"><h2>Ahorro · todas las pestañas</h2><div id="avSum"></div></div>
+ <div class="card"><h2>Metas de ahorro</h2><div id="avGoals"></div></div>
+ <div class="card min"><h2>Movimientos de ahorro</h2><div id="avList"></div></div>
+</div>
+<div class="card min noav" id="save"></div>
+ <div class="card noav"><h2>Distribución</h2><div id="pie"></div></div>
+ <div class="card min noav"><h2>Gastos por categoría</h2><div id="cat"></div></div>
+ <div class="card min noav"><h2>Movimientos</h2><div id="list"></div></div>
  <div class="card"><details><summary>Ajustes: pestañas y presupuesto</summary><div id="cfg" style="margin-top:10px"></div></details></div>
 </main>
 <script>
@@ -118,7 +125,7 @@ const mname=ym=>{const[y,m]=ym.split('-');return new Date(+y,m-1,1).toLocaleDate
 const DEF={tabs:['Trabajo','Personal'],budgets:{},goals:{},prio:{},rate:0};
 let txs=[],cfg=JSON.parse(JSON.stringify(DEF)),type='gasto',per='m',sel=new Set(),manualTab=null,ref=new Date(),col=null,cA=iso(new Date(new Date().getFullYear(),new Date().getMonth(),1)),cB=iso(new Date());
 const LS='misfinanzas-v1',PAL=['#6242b8','#e8718a','#2fa9a0','#9b6b4a','#b86fd9','#8ab83b','#d97a3d','#c94b4b','#4a4fb0','#2fb8d0','#d94f9a','#8c8c3a','#7a8aa0','#8a3f7a','#ff8a65','#45c9a0'];
-function fixCfg(){cfg=Object.assign({},DEF,cfg);cfg.goals=cfg.goals||{};if(cfg.goal&&!Object.keys(cfg.goals).length&&cfg.tabs[0])cfg.goals[cfg.tabs[0]]=cfg.goal;delete cfg.goal}
+function fixCfg(){cfg=Object.assign({},DEF,cfg);cfg.goals=cfg.goals||{};cfg.saveGoals=cfg.saveGoals||[];if(cfg.goal&&!Object.keys(cfg.goals).length&&cfg.tabs[0])cfg.goals[cfg.tabs[0]]=cfg.goal;delete cfg.goal}
 
 /* ---------- almacenamiento ---------- */
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem(LS)||'null');if(d){txs=d.txs||[];cfg=d.cfg||cfg}}catch(e){}fixCfg();render()}
@@ -198,7 +205,7 @@ function pieHTML(I,G,A,by){
   return `<div class="pie">${svg}<div class="leg">${leg||'<span class="mu">Sin datos en este período</span>'}</div></div>`;
 }
 
-let editId=null;
+let editId=null,goalEdit=null,av=false,addingTab=false;
 const edUI=id=>`<button class="del" data-edit="${esc(id)}">✏️ Editar</button>`;
 function endEdit(){editId=null;$('#fOk').textContent='Guardar';$('#fCancel').style.display='none'}
 function startEdit(id){
@@ -233,17 +240,50 @@ function toggleTheme(){
 }
 let pend=null;const note=m=>{$('#fMsg').textContent=m};
 const delUI=(id,virt)=>pend===id?`<span class="mu">¿Borrar${virt?' toda la compra':''}?</span> <button class="chip" data-yes="${esc(id)}">Sí</button> <button class="chip" data-no="1">No</button>`:`<button class="del" data-del="${esc(id)}">🗑 Borrar</button>`;
+const rowHTML=t=>`<div class="tx"><div>${t.virt?`<input type="checkbox" data-pay="${esc(t.planId)}|${t.ym}" ${t.paid?'checked':''}> `:''}<b>${esc(t.cat)}${t.sub?' › '+esc(t.sub):''}</b><span class="tag">${esc(t.tab)}</span>${t.type==='ahorro'?'<span class="tag">Ahorro</span>':''}${usdTag(t)}<br><small>${esc(t.date.split('-').reverse().join('/'))}${t.desc?' · '+esc(t.desc):''}</small></div><div style="text-align:right"><b class="${t.type==='ingreso'?'i':t.type==='ahorro'?'a':'g'}">${t.type==='ingreso'?'+':'−'}${money(t.amt)}</b><br>${edUI(t.virt?t.planId:t.id)} ${delUI(t.virt?t.planId:t.id,t.virt)}</div></div>`;
+
+function setAv(v){
+  if(av===v)return;av=v;document.body.classList.toggle('av',v);
+  const want=v?'ahorro':(type==='ahorro'?'gasto':null);
+  if(want&&type!==want){const b=document.querySelector('[data-t="'+want+'"]');if(b)b.click()}
+}
+function addQuickTab(){
+  const q=$('#qTab');const v=q?q.value.trim():'';if(!v)return;
+  if(!cfg.tabs.includes(v))cfg.tabs.push(v);
+  sel=new Set([v]);setAv(false);manualTab=null;addingTab=false;saveCfg();
+}
+function renderAv(all,DA,DB){
+  const ah=all.filter(t=>t.type==='ahorro'&&t.date>=DA&&t.date<=DB).sort((x,y)=>y.date.localeCompare(x.date)||String(y.id).localeCompare(x.id));
+  const tot=ah.reduce((s,t)=>s+t.amt,0);
+  const grp=k=>{const o={};ah.forEach(t=>{const n=t[k]||'—';o[n]=(o[n]||0)+t.amt});return Object.entries(o).sort((x,y)=>y[1]-x[1])};
+  const bars=rows=>rows.length?rows.map(([n,v])=>`<div class="cat"><span>${esc(n)}</span><div class="bar"><i style="width:${v/rows[0][1]*100}%;background:var(--aho)"></i></div><b>${money(v)}</b></div>`).join(''):'<div class="msg">Sin ahorro en este período</div>';
+  $('#avSum').innerHTML=`<div class="a" style="font-size:30px;font-weight:800;line-height:1.1">${money(tot)}</div><small class="mu">Ahorrado en ${esc(label())}, sumando todas las pestañas</small><h2 style="margin:14px 0 4px">Por origen (pestaña)</h2>${bars(grp('tab'))}<h2 style="margin:14px 0 4px">Por categoría (destino)</h2>${bars(grp('cat'))}`;
+  $('#avList').innerHTML=ah.length?ah.map(rowHTML).join(''):'<div class="msg">Todavía no hay ahorros en este período</div>';
+  const gl=cfg.saveGoals||[],key=n=>String(n).trim().toLowerCase();
+  const saved=n=>all.filter(t=>t.type==='ahorro'&&key(t.cat)===key(n)).reduce((s,t)=>s+t.amt,0);
+  const pn=$('#gN')?$('#gN').value:'',pt=$('#gT')?$('#gT').value:'';
+  const cards=gl.map(g=>{
+    const v=saved(g.n),p=g.t>0?v/g.t*100:0,diff=g.t-v,gid='sg:'+g.id;
+    const state=diff>0?`Te faltan <b class="g">${money(diff)}</b>`:diff<0?`¡Te pasaste por <b class="i">${money(-diff)}</b>!`:'<b class="i">¡Meta cumplida justo!</b>';
+    const acts=pend===gid?`<span class="mu">¿Borrar?</span> <button class="chip" data-yes="${esc(gid)}">Sí</button> <button class="chip" data-no="1">No</button>`:`<button class="del" data-gedit="${esc(g.id)}">✏️ Editar</button> <button class="del" data-del="${esc(gid)}">🗑 Borrar</button>`;
+    return `<div class="goal"><div class="row" style="justify-content:space-between"><b>${esc(g.n)}</b><span>${acts}</span></div><div class="bar"><i style="width:${Math.min(100,p)}%;background:${v>=g.t?'var(--ing)':'var(--aho)'}"></i></div><div class="row" style="justify-content:space-between"><span>Vas <b class="a">${money(v)}</b> de ${money(g.t)} (${p<10?p.toFixed(1):p.toFixed(0)}%)</span><span>${state}</span></div></div>`;
+  }).join('');
+  $('#avGoals').innerHTML=(cards||'<div class="msg">Todavía no tenés metas. Creá la primera acá abajo.</div>')+`<small class="mu" style="display:block;margin:8px 0 6px">Se suma todo lo que cargues como <b>Ahorro</b> con ese motivo como categoría, sin importar la pestaña ni el período.</small><div class="two"><input id="gN" placeholder="Motivo (ej: Viaje)"><input id="gT" type="text" inputmode="decimal" placeholder="Meta $"></div><button class="add" style="width:100%;margin-top:6px" id="gOk">${goalEdit?'Guardar cambios':'Agregar meta'}</button>${goalEdit?'<button class="chip" id="gCancel" style="margin-top:6px">Cancelar</button>':''}`;
+  if(goalEdit){const g=gl.find(x=>x.id===goalEdit);if(g){$('#gN').value=g.n;$('#gT').value=g.t}}else{$('#gN').value=pn;$('#gT').value=pt}
+}
 function render(){
   fixCfg();applyTheme();
   sel=new Set([...sel].filter(t=>cfg.tabs.includes(t)));
   $('#per').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.p===per));
   $('#cust').style.display=per==='c'?'':'none';$('#nav').style.display=per==='c'?'none':'';
   $('#cA').value=cA;$('#cB').value=cB;$('#lbl').textContent=label();
-  $('#tabs').innerHTML=`<button class="chip ${sel.size?'':'on'}" data-all="1">Todas</button>`+cfg.tabs.map(t=>`<button class="chip ${sel.has(t)?'on':''}" data-tab="${esc(t)}">${esc(t)}</button>`).join('');
-  const tv=manualTab!==null&&cfg.tabs.includes(manualTab)?manualTab:(sel.size===1?[...sel][0]:'');
+  const qv=$('#qTab')?$('#qTab').value:'';
+  $('#tabs').innerHTML=`<button class="chip ${!av&&!sel.size?'on':''}" data-all="1">Todas</button>`+cfg.tabs.map(t=>`<button class="chip ${!av&&sel.has(t)?'on':''}" data-tab="${esc(t)}">${esc(t)}</button>`).join('')+`<button class="chip ${av?'on':''}" data-av="1">💰 Ahorro</button>`+(addingTab?`<span class="qt"><input id="qTab" placeholder="Nueva pestaña" maxlength="30"><button class="chip" data-qadd="1">Agregar</button><button class="chip" data-qx="1">✕</button></span>`:`<button class="chip" data-addtab="1" aria-label="Agregar pestaña">+</button>`);
+  if(addingTab&&$('#qTab'))$('#qTab').value=qv;
+  const tv=manualTab!==null&&cfg.tabs.includes(manualTab)?manualTab:(!av&&sel.size===1?[...sel][0]:'');
   $('#fTab').innerHTML=`<option value="" disabled ${tv===''?'selected':''}>Seleccionar pestaña…</option>`+cfg.tabs.map(t=>`<option ${t===tv?'selected':''}>${esc(t)}</option>`).join('');
   $('#fTab').className=tv===''?'ph':'';
-  $('#cats').innerHTML=[...new Set(txs.filter(t=>t.cat).map(t=>t.cat))].map(c=>`<option value="${esc(c)}">`).join('');
+  $('#cats').innerHTML=[...new Set([...txs.filter(t=>t.cat).map(t=>t.cat),...cfg.saveGoals.map(g=>g.n)])].map(c=>`<option value="${esc(c)}">`).join('');
   if(!$('#fRate').value&&cfg.rate)$('#fRate').value=cfg.rate;
   updSubs();
 
@@ -273,7 +313,8 @@ function render(){
   $('#cat').innerHTML=ents.length?ents.map(([c,o])=>`<div class="cat"><span>${esc(c)}</span><div class="bar"><i style="width:${o.tot/mx*100}%"></i></div><b>${money(o.tot)}</b></div>`+Object.entries(o.subs).sort((x,y)=>y[1]-x[1]).map(([s,v])=>`<div class="cat sub"><span>${esc(s)}</span><div class="bar"><i style="width:${v/o.tot*100}%"></i></div><span>${money(v)}</span></div>`).join('')).join(''):'<div class="msg">Sin gastos en este período</div>';
 
   // movimientos
-  $('#list').innerHTML=inR.length?inR.map(t=>`<div class="tx"><div>${t.virt?`<input type="checkbox" data-pay="${esc(t.planId)}|${t.ym}" ${t.paid?'checked':''}> `:''}<b>${esc(t.cat)}${t.sub?' › '+esc(t.sub):''}</b><span class="tag">${esc(t.tab)}</span>${t.type==='ahorro'?'<span class="tag">Ahorro</span>':''}${usdTag(t)}<br><small>${esc(t.date.split('-').reverse().join('/'))}${t.desc?' · '+esc(t.desc):''}</small></div><div style="text-align:right"><b class="${t.type==='ingreso'?'i':t.type==='ahorro'?'a':'g'}">${t.type==='ingreso'?'+':'−'}${money(t.amt)}</b><br>${edUI(t.virt?t.planId:t.id)} ${delUI(t.virt?t.planId:t.id,t.virt)}</div></div>`).join(''):'<div class="msg">Todavía no hay movimientos</div>';
+  $('#list').innerHTML=inR.length?inR.map(rowHTML).join(''):'<div class="msg">Todavía no hay movimientos</div>';
+  renderAv(all,DA,DB);
 
   // ahorro por pestaña
   const goalM=names.reduce((s,n)=>s+(+cfg.goals[n]||0),0),goalP=goalM*f,sv=$('#save');
@@ -323,8 +364,15 @@ function hints(){
 /* ---------- eventos ---------- */
 document.addEventListener('click',e=>{
   const t=e.target.closest('button');if(!t)return;const d=t.dataset;
-  if(d.all){sel.clear();manualTab=null;render()}
-  else if(d.tab){sel.has(d.tab)?sel.delete(d.tab):sel.add(d.tab);manualTab=null;render()}
+  if(d.all){setAv(false);sel.clear();manualTab=null;render()}
+  else if(d.av){setAv(true);manualTab=null;render()}
+  else if(d.addtab){addingTab=true;render();const q=$('#qTab');if(q)q.focus()}
+  else if(d.qx){addingTab=false;render()}
+  else if(d.qadd)addQuickTab()
+  else if(t.id==='gOk'){const n=$('#gN').value.trim(),v=parseMoney($('#gT').value);if(!n||!(v>0)){$('#gOk').textContent='Completá motivo y monto';return}cfg.saveGoals=cfg.saveGoals||[];if(goalEdit){const g=cfg.saveGoals.find(x=>x.id===goalEdit);if(g){g.n=n;g.t=v}goalEdit=null}else cfg.saveGoals.push({id:'g'+Date.now().toString(36),n,t:v});$('#gN').value='';$('#gT').value='';saveCfg()}
+  else if(t.id==='gCancel'){goalEdit=null;$('#gN').value='';$('#gT').value='';render()}
+  else if(d.gedit){goalEdit=d.gedit;render()}
+  else if(d.tab){setAv(false);sel.has(d.tab)?sel.delete(d.tab):sel.add(d.tab);manualTab=null;render()}
   else if(d.p){per=d.p;render()}
   else if(d.t){type=d.t;document.querySelectorAll('[data-t]').forEach(b=>b.className=b.dataset.t===type?'on '+({gasto:'g',ingreso:'i',ahorro:'a'}[type]):'');$('#fCat').placeholder=type==='ahorro'?'Destino del ahorro (ej: Fondo, Viaje)':'Categoría o tarjeta';$('#ckQ').style.display=type==='gasto'?'':'none';if(type!=='gasto'){$('#fQ').checked=false;hints()}}
   else if(d.calc){const ae=document.activeElement;if(ae&&ae.blur)ae.blur();render()}
@@ -333,7 +381,7 @@ document.addEventListener('click',e=>{
   else if(t.id==='thm')toggleTheme();
   else if(d.del){pend=d.del;render()}
   else if(d.no){pend=null;render()}
-  else if(d.yes){const k=d.yes;pend=null;if(k.startsWith('rm:')){const n=k.slice(3);cfg.tabs=cfg.tabs.filter(x=>x!==n);delete cfg.budgets[n];delete cfg.goals[n];saveCfg()}else{delTx(k);render()}}
+  else if(d.yes){const k=d.yes;pend=null;if(k.startsWith('sg:')){cfg.saveGoals=(cfg.saveGoals||[]).filter(g=>g.id!==k.slice(3));saveCfg()}else if(k.startsWith('rm:')){const n=k.slice(3);cfg.tabs=cfg.tabs.filter(x=>x!==n);delete cfg.budgets[n];delete cfg.goals[n];saveCfg()}else{delTx(k);render()}}
   else if(d.rm){pend='rm:'+d.rm;render()}
   else if(d.mk){if(!cfg.tabs.includes(d.mk)){cfg.tabs.push(d.mk);saveCfg()}}
   else if(t.id==='addTab'){const v=$('#newTab').value.trim();if(v&&!cfg.tabs.includes(v)){cfg.tabs.push(v);saveCfg()}}
@@ -350,6 +398,7 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('click',e=>{const el=e.target.closest('[data-sl]');if(!el)return;const n=el.getAttribute('data-sl');pieSel=pieSel===n?null:n;render()});
 document.addEventListener('click',e=>{const c=e.target.closest('.card');if(!c)return;const f=c.firstElementChild;if(f&&f.contains(e.target)&&(f.tagName==='H2'||c.classList.contains('hero')))c.classList.toggle('min')});
+document.addEventListener('keydown',e=>{if(e.target.id!=='qTab')return;if(e.key==='Enter'){e.preventDefault();addQuickTab()}else if(e.key==='Escape'){addingTab=false;render()}});
 document.addEventListener('input',e=>{const id=e.target.id;if(id==='fCat')updSubs();if(['fCur','fRate','fAmt','fQ','fN'].includes(id))hints()});
 $('#fQ').addEventListener('change',hints);$('#fCur').addEventListener('change',hints);
 $('#f').addEventListener('submit',e=>{
