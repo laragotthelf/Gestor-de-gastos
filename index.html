@@ -416,11 +416,12 @@ $('#f').addEventListener('submit',e=>{
     saveTx(Object.assign({id,kind:'plan',tab,cat,sub,desc,total:amt,monthly:amt/n,n,start:date.slice(0,7),day:+date.slice(8),paid:editId?((txs.find(t=>t.id===editId)||{}).paid||{}):{}},x));
   }else saveTx(Object.assign({id,type,tab,cat,sub,desc,amt,date},x));
   ['#fCat','#fSub','#fDesc','#fAmt','#fN'].forEach(s=>$(s).value='');$('#fMk').checked=false;$('#fQ').checked=false;
-  endEdit();if(dirty)saveCfg();hints();$('#fCat').focus();
+  endEdit();if(dirty)saveCfg();hints();if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
 });
 $('#fDate').value=iso(new Date());
 try{if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js')}catch(e){}
 render();init();
+setTimeout(()=>{const a=document.activeElement;if(a&&a!==document.body&&a.blur)a.blur()},50);
 </script>
 </body>
 </html>
